@@ -2,7 +2,7 @@ Require Import ZArith List.
 Require Import Basics.
 
 Set Implicit Arguments.
-Open Scope Z_scope.
+Open Scope nat_scope.
 
 Module Tarpit. 
   Section DataTypes.
@@ -40,7 +40,7 @@ Module Tarpit.
 
   End DataTypes.
 
-  Definition tape := zipper Z.
+  Definition tape := zipper nat.
 
   Section IO.
 
@@ -50,7 +50,7 @@ Module Tarpit.
     
     Inductive IOC :=
     | Write : IOC
-    | Plus : Z -> IOC
+    | Plus : nat -> IOC
     | Read : IOC
     | L : IOC
     | R : IOC.
@@ -58,14 +58,14 @@ Module Tarpit.
     Definition FIO := @Free IOC (fun _ => unit).
   End IO.
 
-  Definition zeroes : stream Z := forever 0.
+  Definition zeroes : stream nat := forever 0.
 
   Section Haskell.
     Axiom HS_IO : Type -> Type.
     Axiom HS_return : forall (A : Type) (a : A), HS_IO A.
     Axiom HS_bind : forall (A B : Type) (a : HS_IO A) (f : A -> HS_IO B), HS_IO B.
-    Axiom HS_write : Z -> HS_IO unit.
-    Axiom HS_read : HS_IO Z.
+    Axiom HS_write : nat -> HS_IO unit.
+    Axiom HS_read : HS_IO nat.
   End Haskell.
 
 
@@ -104,11 +104,12 @@ End Examples.
 Import Tarpit.
 
 Extract Constant HS_IO "a" => "IO a".
-Extract Constant HS_return  => "return".
+Extract Inlined Constant HS_return  => "return".
 Extract Inlined Constant HS_bind => "(>>=)".
 Extract Inlined Constant HS_write => "print".
 Extract Inlined Constant HS_read => "((fmap read getLine) :: IO Z)".
 Extract Inductive list => "([])" [ "[]" "(:)" ].
+Extract Inductive unit => "()" [ "()" ].
 
 Extraction Language Haskell.
 Extraction "Example" Examples.

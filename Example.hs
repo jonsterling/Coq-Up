@@ -2,9 +2,6 @@ module Example where
 
 import qualified Prelude
 
-data Unit =
-   Tt
-
 data Nat =
    O
  | S Nat
@@ -111,7 +108,7 @@ iOC_rec :: a1 -> (Nat -> a1) -> a1 -> a1 -> a1 -> IOC -> a1
 iOC_rec =
   iOC_rect
 
-type FIO a = Free IOC Unit a
+type FIO a = Free IOC () a
 
 zeroes :: Stream Nat
 zeroes =
@@ -119,37 +116,34 @@ zeroes =
 
 type HS_IO a = IO a
 
-hS_return :: a1 -> HS_IO a1
-hS_return = return
-
 type Prog = ([]) IOC
 
 eval :: (FIO a1) -> Tape -> HS_IO a1
 eval mx t =
-  let {tapeMod = \f cont -> eval (cont Tt) (f t)} in
+  let {tapeMod = \f cont -> eval (cont ()) (f t)} in
   case mx of {
-   Pure x -> hS_return x;
+   Pure x -> return x;
    Eff c cont ->
     case c of {
-     Write -> (>>=) (print (focus t)) (\x -> eval (cont Tt) t);
+     Write -> (>>=) (print (focus t)) (\x -> eval (cont ()) t);
      Plus n -> tapeMod (modFocus (\x -> plus n x)) cont;
      Read ->
       (>>=) ((fmap read getLine) :: IO Z) (\x ->
-        eval (cont Tt) (setFocus x t));
+        eval (cont ()) (setFocus x t));
      L -> tapeMod moveLeft cont;
      R -> tapeMod moveRight cont}}
 
-compile :: Prog -> FIO Unit
+compile :: Prog -> FIO ()
 compile p =
   case p of {
-   [] -> Pure Tt;
+   [] -> Pure ();
    (:) x xs -> Eff x (\x0 -> compile xs)}
 
 testProgram :: Prog
 testProgram =
   (:) Read ((:) Write ((:) (Plus (S (S (S (S O))))) ((:) Write [])))
 
-compiledTest :: HS_IO Unit
+compiledTest :: HS_IO ()
 compiledTest =
   eval (compile testProgram) (Zip zeroes (S O) zeroes)
 

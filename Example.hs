@@ -1,6 +1,21 @@
+{-# OPTIONS_GHC -cpp -fglasgow-exts #-}
+{- For Hugs, use the option -F"cpp -P -traditional" -}
+
 module Example where
 
 import qualified Prelude
+
+
+#ifdef __GLASGOW_HASKELL__
+import qualified GHC.Base
+unsafeCoerce :: a -> b
+unsafeCoerce = GHC.Base.unsafeCoerce#
+#else
+-- HUGS
+import qualified IOExts
+unsafeCoerce :: a -> b
+unsafeCoerce = IOExts.unsafeCoerce
+#endif
 
 data Stream a =
    SCons a (Stream a)
@@ -11,15 +26,6 @@ forever x =
 
 data Zipper a =
    Zip (Stream a) a (Stream a)
-
-zipper_rect :: ((Stream a1) -> a1 -> (Stream a1) -> a2) -> (Zipper a1) -> a2
-zipper_rect f z =
-  case z of {
-   Zip x x0 x1 -> f x x0 x1}
-
-zipper_rec :: ((Stream a1) -> a1 -> (Stream a1) -> a2) -> (Zipper a1) -> a2
-zipper_rec =
-  zipper_rect
 
 left :: (Zipper a1) -> Stream a1
 left z =
@@ -60,60 +66,52 @@ modFocus f z =
   case z of {
    Zip ls x rs -> Zip ls (f x) rs}
 
-type Tape = Zipper Integer
+type Tape = Zipper Prelude.Integer
 
-data Free c r a =
+data EffectTree c r a =
    Pure a
- | Eff c (r -> Free c r a)
-
-free_rect :: (a3 -> a4) -> (a1 -> (a2 -> Free a1 a2 a3) -> (a2 -> a4) -> a4)
-             -> (Free a1 a2 a3) -> a4
-free_rect f f0 f1 =
-  case f1 of {
-   Pure y -> f y;
-   Eff c p -> f0 c p (\y -> free_rect f f0 (p y))}
-
-free_rec :: (a3 -> a4) -> (a1 -> (a2 -> Free a1 a2 a3) -> (a2 -> a4) -> a4)
-            -> (Free a1 a2 a3) -> a4
-free_rec =
-  free_rect
+ | Eff c (r -> EffectTree c r a)
 
 data IOC =
-   Write
- | Plus Integer
- | Read
+   Read
+ | Write
+ | Inc
+ | Dec
  | L
  | R
 
-iOC_rect :: a1 -> (Integer -> a1) -> a1 -> a1 -> a1 -> IOC -> a1
-iOC_rect f f0 f1 f2 f3 i =
+iOC_rect :: a1 -> a1 -> a1 -> a1 -> a1 -> a1 -> IOC -> a1
+iOC_rect f f0 f1 f2 f3 f4 i =
   case i of {
-   Write -> f;
-   Plus x -> f0 x;
-   Read -> f1;
-   L -> f2;
-   R -> f3}
+   Read -> f;
+   Write -> f0;
+   Inc -> f1;
+   Dec -> f2;
+   L -> f3;
+   R -> f4}
 
-iOC_rec :: a1 -> (Integer -> a1) -> a1 -> a1 -> a1 -> IOC -> a1
+iOC_rec :: a1 -> a1 -> a1 -> a1 -> a1 -> a1 -> IOC -> a1
 iOC_rec =
   iOC_rect
 
-type FIO a = Free IOC () a
+type FIO a = EffectTree IOC () a
 
 type Prog = ([]) IOC
 
-eval :: (FIO a1) -> Tape -> IO a1
+eval :: (FIO a1) -> Tape -> Prelude.IO a1
 eval mx t =
-  let {tapeMod = \f cont -> eval (cont ()) (f t)} in
+  let {tapeMod = \f cont -> Prelude.id (eval (cont ()) (f t))} in
   case mx of {
-   Pure x -> return x;
+   Pure x -> Prelude.return x;
    Eff c cont ->
     case c of {
-     Write -> (>>=) (print (focus t)) (\x -> eval (cont ()) t);
-     Plus n -> tapeMod (modFocus (\x -> (+) n x)) cont;
-     Read ->
-      (>>=) ((fmap read getLine) :: IO Integer) (\x ->
-        eval (cont ()) (setFocus x t));
+     Read -> (Prelude.>>=)
+      ((Prelude.fmap Prelude.read Prelude.getLine) :: Prelude.IO Prelude.Integer)
+      (\x -> eval (cont ()) (setFocus (unsafeCoerce x) t));
+     Write -> (Prelude.>>=) (Prelude.print (focus t)) (\x ->
+      eval (cont ()) t);
+     Inc -> tapeMod (modFocus (\x -> (Prelude.+) x (Prelude.succ 0))) cont;
+     Dec -> tapeMod (modFocus (\x -> (Prelude.-) x (Prelude.succ 0))) cont;
      L -> tapeMod moveLeft cont;
      R -> tapeMod moveRight cont}}
 
@@ -125,14 +123,14 @@ compile p =
 
 testProgram :: Prog
 testProgram =
-  (:) Read ((:) Write ((:) (Plus (succ (succ (succ (succ 0))))) ((:) Write
-    [])))
+  (:) Read ((:) Dec ((:) Write ((:) Inc ((:) Inc ((:) Inc ((:) Write
+    testProgram))))))
 
-zeroes :: Stream Integer
+zeroes :: Stream Prelude.Integer
 zeroes =
   forever 0
 
-main :: IO ()
+main :: Prelude.IO ()
 main =
-  eval (compile testProgram) (Zip zeroes (succ 0) zeroes)
+  eval (compile testProgram) (Zip zeroes (Prelude.succ 0) zeroes)
 

@@ -7,16 +7,17 @@ Open Scope nat_scope.
 Module Tarpit. 
   Section DataTypes.
     Variable A : Type.
+
     CoInductive stream  : Type :=
     | SCons : A -> stream -> stream.
 
     CoFixpoint forever (x : A) : stream := SCons x (forever x).
     
     Record zipper := Zip
-                      { left  : stream ;
-                        focus : A ;
-                        right : stream
-                      }.
+      { left  : stream ;
+        focus : A ;
+        right : stream
+      }.
 
     Definition moveLeft (z : zipper) : zipper :=
       match z with
@@ -43,47 +44,47 @@ Module Tarpit.
   Definition tape := zipper nat.
 
   Section IO.
+    CoInductive EffectTree {C : Type} {R : C -> Type} (A : Type) : Type :=
+    | pure : A -> EffectTree A
+    | eff  : forall (c : C), (R c -> EffectTree A) -> EffectTree A.
 
-    Inductive Free {C : Type} {R : C -> Type} (A : Type) : Type :=
-    | pure : A -> Free A
-    | eff  : forall (c : C) (p : R c -> Free A), Free A.
-    
-    Inductive IOC :=
-    | Write : IOC
-    | Plus : nat -> IOC
-    | Read : IOC
-    | L : IOC
-    | R : IOC.
-
-    Definition FIO := @Free IOC (fun _ => unit).
+    Inductive IOC := Read | Write | Inc | Dec | L | R.
+    Definition FIO := @EffectTree IOC (fun _ => unit).
   End IO.
 
   Section Haskell.
-    Parameter HS_IO : Type -> Type.
-    Parameter HS_return : forall (A : Type) (a : A), HS_IO A.
-    Parameter HS_bind : forall (A B : Type) (a : HS_IO A) (f : A -> HS_IO B), HS_IO B.
-    Parameter HS_write : nat -> HS_IO unit.
-    Parameter HS_read : HS_IO nat.
+    CoInductive HS_IO : Type -> Type :=
+    | HS_return : forall (A : Type), A -> HS_IO A
+    | HS_bind : forall (A B : Type), HS_IO A -> (A -> HS_IO B) -> HS_IO B
+    | HS_write : nat -> HS_IO unit
+    | HS_read : HS_IO nat
+    | HS_id : forall (A : Type), HS_IO A -> HS_IO A.
   End Haskell.
 
 
   Section Compiler.
-    Definition prog := list IOC.
-    Fixpoint eval {A} (mx : FIO A) (t : tape) : HS_IO A :=
-      let tapeMod := fun f cont => eval (cont tt) (f t) in
+    CoInductive colist A : Type :=
+    | conil  : colist A
+    | cocons : A -> colist A -> colist A.
+    Implicit Arguments conil [A].
+    
+    Definition prog := colist IOC.
+    CoFixpoint eval {A} (mx : FIO A) (t : tape) : HS_IO A :=
+      let tapeMod := fun f cont => HS_id (eval (cont tt) (f t)) in
       match mx with
         | pure x => HS_return x
         | eff Write cont => HS_bind (HS_write (focus t)) (fun _ => eval (cont tt) t)
         | eff Read cont => HS_bind HS_read (fun x => eval (cont tt) (setFocus x t))
         | eff L cont => tapeMod (@moveLeft _) cont
         | eff R cont => tapeMod (@moveRight _) cont
-        | eff (Plus n) cont => tapeMod (modFocus (fun x => n + x)) cont
+        | eff Inc cont => tapeMod (modFocus (fun x => x + 1)) cont
+        | eff Dec cont => tapeMod (modFocus (fun x => x - 1)) cont
       end.
 
-    Fixpoint compile (p : prog) : FIO _ :=
+    CoFixpoint compile (p : prog) : FIO _ :=
       match p with
-        | nil => pure tt
-        | x :: xs => eff x (fun _ => compile xs)
+        | conil => pure tt
+        | cocons x xs => eff x (fun _ => compile xs)
       end.
   End Compiler.
 End Tarpit.
@@ -91,29 +92,24 @@ End Tarpit.
 Module Examples.
   Import Tarpit.
 
-  Notation " y ;; b " := (HS_bind y (fun _ => b)) (right associativity, at level 60).
-
-  Definition testProgram : prog :=
-    (Read :: Write :: Plus 4 :: Write :: nil).
+  Infix " ::: " := cocons (right associativity, at level 100).
+  CoFixpoint testProgram : prog :=
+    (Read ::: Dec ::: Write ::: Inc ::: Inc ::: Inc ::: Write ::: testProgram).
   
   Definition zeroes : stream nat := forever 0.
   Definition main := eval (compile testProgram) (Zip zeroes 1 zeroes).
 End Examples.
 
 Import Tarpit.
-Extract Constant HS_IO "a" => "IO".
-Extract Inlined Constant HS_return  => "return".
-Extract Inlined Constant HS_bind => "(>>=)".
-Extract Inlined Constant HS_write => "print".
-Extract Inlined Constant HS_read => "((fmap read getLine) :: IO Integer)".
-Extract Inductive nat => "Integer" ["0" "succ"]
+Extract Inductive HS_IO => "Prelude.IO" [ "Prelude.return" "(Prelude.>>=)" "Prelude.print" "((Prelude.fmap Prelude.read Prelude.getLine) :: Prelude.IO Prelude.Integer)" "Prelude.id" ].
+Extract Inductive nat => "Prelude.Integer" ["0" "Prelude.succ"]
   "(\fO fS n -> if n==0 then fO () else fS (n-1))".
-Extract Inlined Constant plus => "(+)".
-Extract Inlined Constant mult => "(*)".
+Extract Inlined Constant plus => "(Prelude.+)".
+Extract Inlined Constant minus => "(Prelude.-)".
+Extract Inlined Constant mult => "(Prelude.*)".
+Extract Inductive colist => "([])" [ "[]" "(:)" ].
 Extract Inductive list => "([])" [ "[]" "(:)" ].
 Extract Inductive unit => "()" [ "()" ].
-
-Extraction Inline HS_IO. 
 
 Extraction Language Haskell.
 Extraction "Example" Examples.

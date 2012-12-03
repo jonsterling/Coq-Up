@@ -2,16 +2,6 @@ module Example where
 
 import qualified Prelude
 
-data Nat =
-   O
- | S Nat
-
-plus :: Nat -> Nat -> Nat
-plus n m =
-  case n of {
-   O -> m;
-   S p -> S (plus p m)}
-
 data Stream a =
    SCons a (Stream a)
 
@@ -70,7 +60,7 @@ modFocus f z =
   case z of {
    Zip ls x rs -> Zip ls (f x) rs}
 
-type Tape = Zipper Nat
+type Tape = Zipper Integer
 
 data Free c r a =
    Pure a
@@ -90,12 +80,12 @@ free_rec =
 
 data IOC =
    Write
- | Plus Nat
+ | Plus Integer
  | Read
  | L
  | R
 
-iOC_rect :: a1 -> (Nat -> a1) -> a1 -> a1 -> a1 -> IOC -> a1
+iOC_rect :: a1 -> (Integer -> a1) -> a1 -> a1 -> a1 -> IOC -> a1
 iOC_rect f f0 f1 f2 f3 i =
   case i of {
    Write -> f;
@@ -104,17 +94,15 @@ iOC_rect f f0 f1 f2 f3 i =
    L -> f2;
    R -> f3}
 
-iOC_rec :: a1 -> (Nat -> a1) -> a1 -> a1 -> a1 -> IOC -> a1
+iOC_rec :: a1 -> (Integer -> a1) -> a1 -> a1 -> a1 -> IOC -> a1
 iOC_rec =
   iOC_rect
 
 type FIO a = Free IOC () a
 
-type HS_IO a = IO a
-
 type Prog = ([]) IOC
 
-eval :: (FIO a1) -> Tape -> HS_IO a1
+eval :: (FIO a1) -> Tape -> IO a1
 eval mx t =
   let {tapeMod = \f cont -> eval (cont ()) (f t)} in
   case mx of {
@@ -122,9 +110,9 @@ eval mx t =
    Eff c cont ->
     case c of {
      Write -> (>>=) (print (focus t)) (\x -> eval (cont ()) t);
-     Plus n -> tapeMod (modFocus (\x -> plus n x)) cont;
+     Plus n -> tapeMod (modFocus (\x -> (+) n x)) cont;
      Read ->
-      (>>=) ((fmap read getLine) :: IO Z) (\x ->
+      (>>=) ((fmap read getLine) :: IO Integer) (\x ->
         eval (cont ()) (setFocus x t));
      L -> tapeMod moveLeft cont;
      R -> tapeMod moveRight cont}}
@@ -137,13 +125,14 @@ compile p =
 
 testProgram :: Prog
 testProgram =
-  (:) Read ((:) Write ((:) (Plus (S (S (S (S O))))) ((:) Write [])))
+  (:) Read ((:) Write ((:) (Plus (succ (succ (succ (succ 0))))) ((:) Write
+    [])))
 
-zeroes :: Stream Nat
+zeroes :: Stream Integer
 zeroes =
-  forever O
+  forever 0
 
-main :: HS_IO ()
+main :: IO ()
 main =
-  eval (compile testProgram) (Zip zeroes (S O) zeroes)
+  eval (compile testProgram) (Zip zeroes (succ 0) zeroes)
 

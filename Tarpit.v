@@ -59,11 +59,11 @@ Module Tarpit.
   End IO.
 
   Section Haskell.
-    Axiom HS_IO : Type -> Type.
-    Axiom HS_return : forall (A : Type) (a : A), HS_IO A.
-    Axiom HS_bind : forall (A B : Type) (a : HS_IO A) (f : A -> HS_IO B), HS_IO B.
-    Axiom HS_write : nat -> HS_IO unit.
-    Axiom HS_read : HS_IO nat.
+    Parameter HS_IO : Type -> Type.
+    Parameter HS_return : forall (A : Type) (a : A), HS_IO A.
+    Parameter HS_bind : forall (A B : Type) (a : HS_IO A) (f : A -> HS_IO B), HS_IO B.
+    Parameter HS_write : nat -> HS_IO unit.
+    Parameter HS_read : HS_IO nat.
   End Haskell.
 
 
@@ -101,14 +101,19 @@ Module Examples.
 End Examples.
 
 Import Tarpit.
-
-Extract Constant HS_IO "a" => "IO a".
+Extract Constant HS_IO "a" => "IO".
 Extract Inlined Constant HS_return  => "return".
 Extract Inlined Constant HS_bind => "(>>=)".
 Extract Inlined Constant HS_write => "print".
-Extract Inlined Constant HS_read => "((fmap read getLine) :: IO Z)".
+Extract Inlined Constant HS_read => "((fmap read getLine) :: IO Integer)".
+Extract Inductive nat => "Integer" ["0" "succ"]
+  "(\fO fS n -> if n==0 then fO () else fS (n-1))".
+Extract Inlined Constant plus => "(+)".
+Extract Inlined Constant mult => "(*)".
 Extract Inductive list => "([])" [ "[]" "(:)" ].
 Extract Inductive unit => "()" [ "()" ].
+
+Extraction Inline HS_IO. 
 
 Extraction Language Haskell.
 Extraction "Example" Examples.

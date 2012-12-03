@@ -12,7 +12,11 @@ Module Tarpit.
     | SCons : A -> stream -> stream.
 
     CoFixpoint forever (x : A) : stream := SCons x (forever x).
-    
+
+    CoInductive colist : Type :=
+    | conil  : colist
+    | cocons : A -> colist -> colist.
+
     Record zipper := Zip
       { left  : stream ;
         focus : A ;
@@ -63,11 +67,6 @@ Module Tarpit.
 
 
   Section Compiler.
-    CoInductive colist A : Type :=
-    | conil  : colist A
-    | cocons : A -> colist A -> colist A.
-    Implicit Arguments conil [A].
-    
     Definition prog := colist IOC.
     CoFixpoint eval {A} (mx : FIO A) (t : tape) : HS_IO A :=
       let tapeMod := fun f cont => HS_id (eval (cont tt) (f t)) in
@@ -87,14 +86,32 @@ Module Tarpit.
         | cocons x xs => eff x (fun _ => compile xs)
       end.
   End Compiler.
+  
 End Tarpit.
+
+Module Notations.
+  Import Tarpit.
+  Infix " ::: " := cocons (right associativity, at level 100).
+
+  (* A terminating program is a list of semicolon-separated
+     instructions in [| ... |]. *)
+
+  Notation "[| x ; .. ; y |]" := (cocons x .. (cocons y (conil _)) ..).
+
+  (* [| a ; b ; c |> r concatenates the program in the brackets with
+     the program [r]; this can be used for making coinductive
+     programs, such as REPLs. *)
+
+  Notation "[| x ; .. ; y |> r" := (cocons x .. (cocons y r) ..)
+                                    (at level 100).
+End Notations.
 
 Module Examples.
   Import Tarpit.
+  Import Notations.
 
-  Infix " ::: " := cocons (right associativity, at level 100).
   CoFixpoint testProgram : prog :=
-    (Read ::: Dec ::: Write ::: Inc ::: Inc ::: Inc ::: Write ::: testProgram).
+    [| Read ; Dec ; Write ; Inc ; Inc ; Inc ; Write |> testProgram.
   
   Definition zeroes : stream nat := forever 0.
   Definition main := eval (compile testProgram) (Zip zeroes 1 zeroes).

@@ -111,9 +111,9 @@ Module Examples.
     [| Read ; Dec ; Write ; Inc ; Inc ; Inc ; Write |> testProgram.
      
   Definition zeroes : stream nat := forever 0.
-  Definition main := eval (compile testProgram) (Zip zeroes 1 zeroes).
+  Definition emptyTape : tape := Zip zeroes 0 zeroes.
+  Definition main := eval (compile testProgram) emptyTape.
 End Examples.
-
 
 Module Extractions.
   Import Tarpit.

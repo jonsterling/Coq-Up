@@ -130,7 +130,11 @@ zeroes :: Stream Prelude.Integer
 zeroes =
   forever 0
 
+emptyTape :: Tape
+emptyTape =
+  Zip zeroes 0 zeroes
+
 main :: Prelude.IO ()
 main =
-  eval (compile testProgram) (Zip zeroes (Prelude.succ 0) zeroes)
+  eval (compile testProgram) emptyTape
 

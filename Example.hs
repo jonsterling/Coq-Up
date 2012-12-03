@@ -143,7 +143,7 @@ testProgram :: Prog
 testProgram =
   (:) Read ((:) Write ((:) (Plus (S (S (S (S O))))) ((:) Write [])))
 
-compiledTest :: HS_IO ()
-compiledTest =
+main :: HS_IO ()
+main =
   eval (compile testProgram) (Zip zeroes (S O) zeroes)
 

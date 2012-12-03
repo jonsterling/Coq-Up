@@ -66,13 +66,11 @@ modFocus f z =
   case z of {
    Zip ls x rs -> Zip ls (f x) rs}
 
-type Tape = Zipper Prelude.Integer
-
 data EffectTree c r a =
    Pure a
  | Eff c (r -> EffectTree c r a)
 
-data IOC =
+data Instruction =
    Read
  | Write
  | Inc
@@ -80,8 +78,8 @@ data IOC =
  | L
  | R
 
-iOC_rect :: a1 -> a1 -> a1 -> a1 -> a1 -> a1 -> IOC -> a1
-iOC_rect f f0 f1 f2 f3 f4 i =
+instruction_rect :: a1 -> a1 -> a1 -> a1 -> a1 -> a1 -> Instruction -> a1
+instruction_rect f f0 f1 f2 f3 f4 i =
   case i of {
    Read -> f;
    Write -> f0;
@@ -90,15 +88,17 @@ iOC_rect f f0 f1 f2 f3 f4 i =
    L -> f3;
    R -> f4}
 
-iOC_rec :: a1 -> a1 -> a1 -> a1 -> a1 -> a1 -> IOC -> a1
-iOC_rec =
-  iOC_rect
+instruction_rec :: a1 -> a1 -> a1 -> a1 -> a1 -> a1 -> Instruction -> a1
+instruction_rec =
+  instruction_rect
 
-type FIO a = EffectTree IOC () a
+type Io a = EffectTree Instruction () a
 
-type Prog = ([]) IOC
+type Tape = Zipper Prelude.Integer
 
-eval :: (FIO a1) -> Tape -> Prelude.IO a1
+type Prog = ([]) Instruction
+
+eval :: (Io a1) -> Tape -> Prelude.IO a1
 eval mx t =
   let {tapeMod = \f cont -> Prelude.id (eval (cont ()) (f t))} in
   case mx of {
@@ -115,7 +115,7 @@ eval mx t =
      L -> tapeMod moveLeft cont;
      R -> tapeMod moveRight cont}}
 
-compile :: Prog -> FIO ()
+compile :: Prog -> Io ()
 compile p =
   case p of {
    [] -> Pure ();

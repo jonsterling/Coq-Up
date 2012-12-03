@@ -45,17 +45,6 @@ Module Tarpit.
 
   End DataTypes.
 
-  Definition tape := zipper nat.
-
-  Section IO.
-    CoInductive EffectTree {C : Type} {R : C -> Type} (A : Type) : Type :=
-    | pure : A -> EffectTree A
-    | eff  : forall (c : C), (R c -> EffectTree A) -> EffectTree A.
-
-    Inductive IOC := Read | Write | Inc | Dec | L | R.
-    Definition FIO := @EffectTree IOC (fun _ => unit).
-  End IO.
-
   Section Haskell.
     CoInductive HS_IO : Type -> Type :=
     | HS_return : forall (A : Type), A -> HS_IO A
@@ -65,10 +54,17 @@ Module Tarpit.
     | HS_id : forall (A : Type), HS_IO A -> HS_IO A.
   End Haskell.
 
+  Section Program.
+    CoInductive EffectTree {C : Type} {R : C -> Type} (A : Type) : Type :=
+    | pure : A -> EffectTree A
+    | eff  : forall (c : C), (R c -> EffectTree A) -> EffectTree A.
 
-  Section Compiler.
-    Definition prog := colist IOC.
-    CoFixpoint eval {A} (mx : FIO A) (t : tape) : HS_IO A :=
+    Inductive instruction := Read | Write | Inc | Dec | L | R.
+    Definition io := @EffectTree instruction (fun _ => unit).
+    Definition tape := zipper nat.
+    Definition prog := colist instruction.
+
+    CoFixpoint eval {A} (mx : io A) (t : tape) : HS_IO A :=
       let tapeMod := fun f cont => HS_id (eval (cont tt) (f t)) in
       match mx with
         | pure x => HS_return x
@@ -80,29 +76,30 @@ Module Tarpit.
         | eff Dec cont => tapeMod (modFocus (fun x => x - 1)) cont
       end.
 
-    CoFixpoint compile (p : prog) : FIO _ :=
+    CoFixpoint compile (p : prog) : io _ :=
       match p with
         | conil => pure tt
         | cocons x xs => eff x (fun _ => compile xs)
       end.
-  End Compiler.
-  
+  End Program.
+
 End Tarpit.
 
 Module Notations.
   Import Tarpit.
+
   Infix " ::: " := cocons (right associativity, at level 100).
 
   (* A terminating program is a list of semicolon-separated
      instructions in [| ... |]. *)
 
-  Notation "[| x ; .. ; y |]" := (cocons x .. (cocons y (conil _)) ..).
+  Notation "[| x ; .. ; y |]" := (x ::: .. (y ::: (conil _)) ..).
 
   (* [| a ; b ; c |> r concatenates the program in the brackets with
      the program [r]; this can be used for making coinductive
      programs, such as REPLs. *)
 
-  Notation "[| x ; .. ; y |> r" := (cocons x .. (cocons y r) ..)
+  Notation "[| x ; .. ; y |> r" := (x ::: .. (y ::: r) ..)
                                     (at level 100).
 End Notations.
 
@@ -112,21 +109,24 @@ Module Examples.
 
   CoFixpoint testProgram : prog :=
     [| Read ; Dec ; Write ; Inc ; Inc ; Inc ; Write |> testProgram.
-  
+     
   Definition zeroes : stream nat := forever 0.
   Definition main := eval (compile testProgram) (Zip zeroes 1 zeroes).
 End Examples.
 
-Import Tarpit.
-Extract Inductive HS_IO => "Prelude.IO" [ "Prelude.return" "(Prelude.>>=)" "Prelude.print" "((Prelude.fmap Prelude.read Prelude.getLine) :: Prelude.IO Prelude.Integer)" "Prelude.id" ].
-Extract Inductive nat => "Prelude.Integer" ["0" "Prelude.succ"]
-  "(\fO fS n -> if n==0 then fO () else fS (n-1))".
-Extract Inlined Constant plus => "(Prelude.+)".
-Extract Inlined Constant minus => "(Prelude.-)".
-Extract Inlined Constant mult => "(Prelude.*)".
-Extract Inductive colist => "([])" [ "[]" "(:)" ].
-Extract Inductive list => "([])" [ "[]" "(:)" ].
-Extract Inductive unit => "()" [ "()" ].
 
-Extraction Language Haskell.
+Module Extractions.
+  Import Tarpit.
+  Extraction Language Haskell.
+  Extract Inductive HS_IO => "Prelude.IO" [ "Prelude.return" "(Prelude.>>=)" "Prelude.print" "((Prelude.fmap Prelude.read Prelude.getLine) :: Prelude.IO Prelude.Integer)" "Prelude.id" ].
+  Extract Inductive nat => "Prelude.Integer" ["0" "Prelude.succ"]
+    "(\fO fS n -> if n==0 then fO () else fS (n-1))".
+  Extract Inlined Constant plus => "(Prelude.+)".
+  Extract Inlined Constant minus => "(Prelude.-)".
+  Extract Inlined Constant mult => "(Prelude.*)".
+  Extract Inductive colist => "([])" [ "[]" "(:)" ].
+  Extract Inductive list => "([])" [ "[]" "(:)" ].
+  Extract Inductive unit => "()" [ "()" ].
+End Extractions.
+
 Extraction "Example" Examples.

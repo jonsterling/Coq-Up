@@ -58,8 +58,6 @@ Module Tarpit.
     Definition FIO := @Free IOC (fun _ => unit).
   End IO.
 
-  Definition zeroes : stream nat := forever 0.
-
   Section Haskell.
     Axiom HS_IO : Type -> Type.
     Axiom HS_return : forall (A : Type) (a : A), HS_IO A.
@@ -98,7 +96,8 @@ Module Examples.
   Definition testProgram : prog :=
     (Read :: Write :: Plus 4 :: Write :: nil).
   
-  Definition compiledTest := eval (compile testProgram) (Zip zeroes 1 zeroes).
+  Definition zeroes : stream nat := forever 0.
+  Definition main := eval (compile testProgram) (Zip zeroes 1 zeroes).
 End Examples.
 
 Import Tarpit.

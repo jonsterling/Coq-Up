@@ -110,10 +110,6 @@ iOC_rec =
 
 type FIO a = Free IOC () a
 
-zeroes :: Stream Nat
-zeroes =
-  forever O
-
 type HS_IO a = IO a
 
 type Prog = ([]) IOC
@@ -142,6 +138,10 @@ compile p =
 testProgram :: Prog
 testProgram =
   (:) Read ((:) Write ((:) (Plus (S (S (S (S O))))) ((:) Write [])))
+
+zeroes :: Stream Nat
+zeroes =
+  forever O
 
 main :: HS_IO ()
 main =

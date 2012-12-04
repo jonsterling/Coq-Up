@@ -121,7 +121,11 @@ Module Examples.
   Import Tarpit.
   Import Notations.
 
-  (* This little program will capitalize every letter you type! *)
+  (* This little program will capitalize every letter you type! But
+  when it tries to capitalize non-letters, weird things will happen!
+  For instance, period ends up activating the special SO key, which
+  swaps in a bizarre character set; slash does the opposite. *)
+
   CoFixpoint yell :=
     #----------------------------------------------------------------!>
     ++++++++++++++++++++ ++++++++++++++++++++ ++++++++++++++++++++++++ ! yell.

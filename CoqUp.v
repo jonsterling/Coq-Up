@@ -1,8 +1,6 @@
-Require Import ZArith List.
-Require Import Basics.
+Require Import List.
 
 Set Implicit Arguments.
-Open Scope nat_scope.
 
 Module Language.
   Section DataTypes.

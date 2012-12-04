@@ -4,7 +4,7 @@ Require Import Basics.
 Set Implicit Arguments.
 Open Scope nat_scope.
 
-Module Tarpit.
+Module Language.
   Section DataTypes.
     Variable A : Type.
 
@@ -83,10 +83,10 @@ Module Tarpit.
       end.
   End Program.
 
-End Tarpit.
+End Language.
 
 Module Notations.
-  Import Tarpit.
+  Import Language.
 
   Infix " ::: " := cocons (right associativity, at level 100).
 
@@ -118,7 +118,7 @@ Module Notations.
 End Notations.
 
 Module Examples.
-  Import Tarpit.
+  Import Language.
   Import Notations.
 
   (* This little program will capitalize every letter you type! But
@@ -136,7 +136,7 @@ Module Examples.
 End Examples.
 
 Module Extractions.
-  Import Tarpit.
+  Import Language.
   Extraction Language Haskell.
   Extract Inductive HS_IO => "Prelude.IO"
                               [ "Prelude.return"

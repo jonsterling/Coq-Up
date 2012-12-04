@@ -6,12 +6,12 @@ Module Language.
   Section DataTypes.
     Variable A : Type.
 
-    CoInductive stream  : Type :=
+    CoInductive stream :=
     | SCons : A -> stream -> stream.
 
-    CoFixpoint forever (x : A) : stream := SCons x (forever x).
+    CoFixpoint forever x := SCons x (forever x).
 
-    CoInductive colist : Type :=
+    CoInductive colist :=
     | conil  : colist
     | cocons : A -> colist -> colist.
 
@@ -21,22 +21,23 @@ Module Language.
         right : stream
       }.
 
-    Definition moveLeft (z : zipper) : zipper :=
+    Definition moveLeft z :=
       match z with
         | Zip (SCons l ls) c rs => Zip ls l (SCons c rs)
       end.
 
-    Definition moveRight (z : zipper) : zipper :=
+
+    Definition moveRight z :=
       match z with
         | Zip ls c (SCons r rs) => Zip (SCons c ls) r rs
       end.
 
-    Definition setFocus (x : A) (z : zipper) :=
+    Definition setFocus x z :=
       match z with
         | Zip ls _ rs => Zip ls x rs
       end.
 
-    Definition modFocus (f : A -> A) (z : zipper) :=
+    Definition modFocus f z :=
       match z with
         | Zip ls x rs => Zip ls (f x) rs
       end.
@@ -53,7 +54,7 @@ Module Language.
   End Haskell.
 
   Section Program.
-    CoInductive EffectTree {C : Type} {R : C -> Type} (A : Type) : Type :=
+    CoInductive EffectTree {C} {R : C -> Type} A :=
     | pure : A -> EffectTree A
     | eff  : forall (c : C), (R c -> EffectTree A) -> EffectTree A.
 
@@ -128,8 +129,8 @@ Module Examples.
     #----------------------------------------------------------------!>
     ++++++++++++++++++++ ++++++++++++++++++++ ++++++++++++++++++++++++ ! yell.
 
-  Definition zeroes : stream nat := forever 0.
-  Definition emptyTape : tape := Zip zeroes 0 zeroes.
+  Definition zeroes := forever 0.
+  Definition emptyTape := Zip zeroes 0 zeroes.
   Definition main := eval (compile yell) emptyTape.
 End Examples.
 

@@ -139,7 +139,7 @@ zeroes :: Stream Prelude.Integer
 zeroes =
   forever 0
 
-emptyTape :: Tape
+emptyTape :: Zipper Prelude.Integer
 emptyTape =
   Zip zeroes 0 zeroes
 

@@ -4,7 +4,7 @@ Require Import Basics.
 Set Implicit Arguments.
 Open Scope nat_scope.
 
-Module Tarpit. 
+Module Tarpit.
   Section DataTypes.
     Variable A : Type.
 
@@ -27,7 +27,7 @@ Module Tarpit.
       match z with
         | Zip (SCons l ls) c rs => Zip ls l (SCons c rs)
       end.
-    
+
     Definition moveRight (z : zipper) : zipper :=
       match z with
         | Zip ls c (SCons r rs) => Zip (SCons c ls) r rs
@@ -93,34 +93,55 @@ Module Notations.
   (* A terminating program is a list of semicolon-separated
      instructions in [| ... |]. *)
 
-  Notation "[| x ; .. ; y |]" := (x ::: .. (y ::: (conil _)) ..).
+  Notation "[| x ; .. ; y |]" := (x ::: .. (y ::: (conil _)) ..)
+                                  (at level 100).
+
 
   (* [| a ; b ; c |> r concatenates the program in the brackets with
      the program [r]; this can be used for making coinductive
      programs, such as REPLs. *)
 
-  Notation "[| x ; .. ; y |> r" := (x ::: .. (y ::: r) ..)
-                                    (at level 100).
+  Notation "[[| x ; .. ; y |> r" := (x ::: .. (y ::: r) ..)
+                                     (at level 100).
+
+  (* If readable code isn't your speed, we can also use some Brainfuck
+  inspired notation. *)
+
+  Notation "> x" := (R ::: x) (at level 100).
+  Notation "< x" := (L ::: x) (at level 100).
+  Notation "++ x" := (Inc ::: x) (at level 100).
+  Notation "-- x" := (Dec ::: x) (at level 100).
+  Notation "! x" := (Write ::: x) (at level 100).
+  Notation "# x" := (Read ::: x) (at level 100).
+  Notation "$" := (conil _).
+
 End Notations.
 
 Module Examples.
   Import Tarpit.
   Import Notations.
 
-  CoFixpoint testProgram : prog :=
-    [| Read ; Dec ; Write ; Inc ; Inc ; Inc ; Write |> testProgram.
-     
+  (* This little program will capitalize every letter you type! *)
+  CoFixpoint yell :=
+    #----------------------------------------------------------------!>
+    ++++++++++++++++++++ ++++++++++++++++++++ ++++++++++++++++++++++++ ! yell.
+
   Definition zeroes : stream nat := forever 0.
   Definition emptyTape : tape := Zip zeroes 0 zeroes.
-  Definition main := eval (compile testProgram) emptyTape.
+  Definition main := eval (compile yell) emptyTape.
 End Examples.
 
 Module Extractions.
   Import Tarpit.
   Extraction Language Haskell.
-  Extract Inductive HS_IO => "Prelude.IO" [ "Prelude.return" "(Prelude.>>=)" "Prelude.print" "((Prelude.fmap Prelude.read Prelude.getLine) :: Prelude.IO Prelude.Integer)" "Prelude.id" ].
+  Extract Inductive HS_IO => "Prelude.IO"
+                              [ "Prelude.return"
+                                "(Prelude.>>=)"
+                                "(Prelude.putChar Prelude.. Prelude.toEnum Prelude.. Prelude.fromInteger)"
+                                "(Prelude.fmap (Prelude.toInteger Prelude.. Prelude.fromEnum) Prelude.getChar)"
+                                "Prelude.id" ].
   Extract Inductive nat => "Prelude.Integer" ["0" "Prelude.succ"]
-    "(\fO fS n -> if n==0 then fO () else fS (n-1))".
+    "(\fO fS n -> if n Prelude.== 0 then fO () else fS (n Prelude.- 1))".
   Extract Inlined Constant plus => "(Prelude.+)".
   Extract Inlined Constant minus => "(Prelude.-)".
   Extract Inlined Constant mult => "(Prelude.*)".

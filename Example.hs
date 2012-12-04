@@ -106,10 +106,11 @@ eval mx t =
    Eff c cont ->
     case c of {
      Read -> (Prelude.>>=)
-      ((Prelude.fmap Prelude.read Prelude.getLine) :: Prelude.IO Prelude.Integer)
+      (Prelude.fmap (Prelude.toInteger Prelude.. Prelude.fromEnum) Prelude.getChar)
       (\x -> eval (cont ()) (setFocus (unsafeCoerce x) t));
-     Write -> (Prelude.>>=) (Prelude.print (focus t)) (\x ->
-      eval (cont ()) t);
+     Write -> (Prelude.>>=)
+      ((Prelude.putChar Prelude.. Prelude.toEnum Prelude.. Prelude.fromInteger)
+      (focus t)) (\x -> eval (cont ()) t);
      Inc -> tapeMod (modFocus (\x -> (Prelude.+) x (Prelude.succ 0))) cont;
      Dec -> tapeMod (modFocus (\x -> (Prelude.-) x (Prelude.succ 0))) cont;
      L -> tapeMod moveLeft cont;
@@ -121,10 +122,18 @@ compile p =
    [] -> Pure ();
    (:) x xs -> Eff x (\x0 -> compile xs)}
 
-testProgram :: Prog
-testProgram =
-  (:) Read ((:) Dec ((:) Write ((:) Inc ((:) Inc ((:) Inc ((:) Write
-    testProgram))))))
+yell :: ([]) Instruction
+yell =
+  (:) Read ((:) Dec ((:) Dec ((:) Dec ((:) Dec ((:) Dec ((:) Dec ((:) Dec
+    ((:) Dec ((:) Dec ((:) Dec ((:) Dec ((:) Dec ((:) Dec ((:) Dec ((:) Dec
+    ((:) Dec ((:) Dec ((:) Dec ((:) Dec ((:) Dec ((:) Dec ((:) Dec ((:) Dec
+    ((:) Dec ((:) Dec ((:) Dec ((:) Dec ((:) Dec ((:) Dec ((:) Dec ((:) Dec
+    ((:) Dec ((:) Write ((:) R ((:) Inc ((:) Inc ((:) Inc ((:) Inc ((:) Inc
+    ((:) Inc ((:) Inc ((:) Inc ((:) Inc ((:) Inc ((:) Inc ((:) Inc ((:) Inc
+    ((:) Inc ((:) Inc ((:) Inc ((:) Inc ((:) Inc ((:) Inc ((:) Inc ((:) Inc
+    ((:) Inc ((:) Inc ((:) Inc ((:) Inc ((:) Inc ((:) Inc ((:) Inc ((:) Inc
+    ((:) Inc ((:) Inc ((:) Inc ((:) Write
+    yell)))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))
 
 zeroes :: Stream Prelude.Integer
 zeroes =
@@ -136,5 +145,5 @@ emptyTape =
 
 main :: Prelude.IO ()
 main =
-  eval (compile testProgram) emptyTape
+  eval (compile yell) emptyTape
 

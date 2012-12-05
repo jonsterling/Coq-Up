@@ -7,9 +7,9 @@ Module Language.
     Variable A : Type.
 
     CoInductive stream :=
-    | SCons : A -> stream -> stream.
+    | scons : A -> stream -> stream.
 
-    CoFixpoint forever x := SCons x (forever x).
+    CoFixpoint forever x := scons x (forever x).
 
     CoInductive colist :=
     | conil  : colist
@@ -23,13 +23,12 @@ Module Language.
 
     Definition moveLeft z :=
       match z with
-        | Zip (SCons l ls) c rs => Zip ls l (SCons c rs)
+        | Zip (scons l ls) c rs => Zip ls l (scons c rs)
       end.
-
 
     Definition moveRight z :=
       match z with
-        | Zip ls c (SCons r rs) => Zip (SCons c ls) r rs
+        | Zip ls c (scons r rs) => Zip (scons c ls) r rs
       end.
 
     Definition setFocus x z :=
@@ -44,44 +43,62 @@ Module Language.
 
   End DataTypes.
 
-  Section Haskell.
-    CoInductive HS_IO : Type -> Type :=
-    | HS_return : forall (A : Type), A -> HS_IO A
-    | HS_bind : forall (A B : Type), HS_IO A -> (A -> HS_IO B) -> HS_IO B
-    | HS_write : nat -> HS_IO unit
-    | HS_read : HS_IO nat
-    | HS_id : forall (A : Type), HS_IO A -> HS_IO A.
-  End Haskell.
+  Module Type CommandResponse.
+    Parameter commands : Set.
+    Parameter response : commands -> Type.
+  End CommandResponse.
 
-  Section Program.
-    CoInductive EffectTree {C} {R : C -> Type} A :=
+  Module EffectTree (Import cr : CommandResponse).
+    CoInductive EffectTree A :=
     | pure : A -> EffectTree A
-    | eff  : forall (c : C), (R c -> EffectTree A) -> EffectTree A.
+    | eff  : forall c, (response c -> EffectTree A) -> EffectTree A.
+    Implicit Arguments eff [A].
+    Export cr.
+  End EffectTree.
 
-    Inductive instruction := Read | Write | Inc | Dec | L | R.
-    Definition io := @EffectTree instruction (fun _ => unit).
+  CoInductive HS_IO : Type -> Type :=
+  | HS_return : forall A, A -> HS_IO A
+  | HS_bind : forall A B, HS_IO A -> (A -> HS_IO B) -> HS_IO B
+  | HS_write : nat -> HS_IO unit
+  | HS_read : HS_IO nat
+  | HS_id : forall A, HS_IO A -> HS_IO A.
+
+  Module IO <: CommandResponse.
+    Inductive instructions := Read | Write | Inc | Dec | L | R.
+    Definition commands := instructions.
+    Definition response (c : commands) := unit.
+  End IO.
+
+  Module IOTree := EffectTree IO.
+  Section Program.
+    Import IOTree.
+
     Definition tape := zipper nat.
-    Definition prog := colist instruction.
+    Definition prog := colist commands.
 
-    CoFixpoint eval {A} (mx : io A) (t : tape) : HS_IO A :=
+    CoFixpoint eval {A} (mx : EffectTree A) (t : tape) : HS_IO A :=
       let tapeMod := fun f cont => HS_id (eval (cont tt) (f t)) in
       match mx with
         | pure x => HS_return x
-        | eff Write cont => HS_bind (HS_write (focus t)) (fun _ => eval (cont tt) t)
-        | eff Read cont => HS_bind HS_read (fun x => eval (cont tt) (setFocus x t))
-        | eff L cont => tapeMod (@moveLeft _) cont
-        | eff R cont => tapeMod (@moveRight _) cont
-        | eff Inc cont => tapeMod (modFocus (fun x => x + 1)) cont
-        | eff Dec cont => tapeMod (modFocus (fun x => x - 1)) cont
+        | eff c cont =>
+          match c with
+            | Write => HS_bind (HS_write (focus t)) (fun _ => eval (cont tt) t)
+            | Read => HS_bind HS_read (fun x => eval (cont tt) (setFocus x t))
+            | L => tapeMod (@moveLeft _) cont
+            | R => tapeMod (@moveRight _) cont
+            | Inc => tapeMod (modFocus (fun x => x + 1)) cont
+            | Dec => tapeMod (modFocus (fun x => x - 1)) cont
+          end
       end.
 
-    CoFixpoint compile (p : prog) : io _ :=
+    CoFixpoint compile (p : prog) : EffectTree _ :=
       match p with
         | conil => pure tt
         | cocons x xs => eff x (fun _ => compile xs)
       end.
   End Program.
 
+  Export IOTree.
 End Language.
 
 Module Notations.
@@ -137,6 +154,7 @@ End Examples.
 Module Extractions.
   Import Language.
   Extraction Language Haskell.
+
   Extract Inductive HS_IO => "Prelude.IO"
                               [ "Prelude.return"
                                 "(Prelude.>>=)"

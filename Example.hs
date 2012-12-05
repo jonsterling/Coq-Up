@@ -18,11 +18,11 @@ unsafeCoerce = IOExts.unsafeCoerce
 #endif
 
 data Stream a =
-   SCons a (Stream a)
+   Scons a (Stream a)
 
 forever :: a1 -> Stream a1
 forever x =
-  SCons x (forever x)
+  Scons x (forever x)
 
 data Zipper a =
    Zip (Stream a) a (Stream a)
@@ -47,14 +47,14 @@ moveLeft z =
   case z of {
    Zip left0 c rs ->
     case left0 of {
-     SCons l ls -> Zip ls l (SCons c rs)}}
+     Scons l ls -> Zip ls l (Scons c rs)}}
 
 moveRight :: (Zipper a1) -> Zipper a1
 moveRight z =
   case z of {
    Zip ls c right0 ->
     case right0 of {
-     SCons r rs -> Zip (SCons c ls) r rs}}
+     Scons r rs -> Zip (Scons c ls) r rs}}
 
 setFocus :: a1 -> (Zipper a1) -> Zipper a1
 setFocus x z =
@@ -66,11 +66,7 @@ modFocus f z =
   case z of {
    Zip ls x rs -> Zip ls (f x) rs}
 
-data EffectTree c r a =
-   Pure a
- | Eff c (r -> EffectTree c r a)
-
-data Instruction =
+data Instructions =
    Read
  | Write
  | Inc
@@ -78,8 +74,8 @@ data Instruction =
  | L
  | R
 
-instruction_rect :: a1 -> a1 -> a1 -> a1 -> a1 -> a1 -> Instruction -> a1
-instruction_rect f f0 f1 f2 f3 f4 i =
+instructions_rect :: a1 -> a1 -> a1 -> a1 -> a1 -> a1 -> Instructions -> a1
+instructions_rect f f0 f1 f2 f3 f4 i =
   case i of {
    Read -> f;
    Write -> f0;
@@ -88,17 +84,23 @@ instruction_rect f f0 f1 f2 f3 f4 i =
    L -> f3;
    R -> f4}
 
-instruction_rec :: a1 -> a1 -> a1 -> a1 -> a1 -> a1 -> Instruction -> a1
-instruction_rec =
-  instruction_rect
+instructions_rec :: a1 -> a1 -> a1 -> a1 -> a1 -> a1 -> Instructions -> a1
+instructions_rec =
+  instructions_rect
 
-type Io a = EffectTree Instruction () a
+type Commands = Instructions
+
+type Response = ()
+
+data EffectTree a =
+   Pure a
+ | Eff Commands (Response -> EffectTree a)
 
 type Tape = Zipper Prelude.Integer
 
-type Prog = ([]) Instruction
+type Prog = ([]) Commands
 
-eval :: (Io a1) -> Tape -> Prelude.IO a1
+eval :: (EffectTree a1) -> Tape -> Prelude.IO a1
 eval mx t =
   let {tapeMod = \f cont -> Prelude.id (eval (cont ()) (f t))} in
   case mx of {
@@ -116,13 +118,13 @@ eval mx t =
      L -> tapeMod moveLeft cont;
      R -> tapeMod moveRight cont}}
 
-compile :: Prog -> Io ()
+compile :: Prog -> EffectTree ()
 compile p =
   case p of {
    [] -> Pure ();
    (:) x xs -> Eff x (\x0 -> compile xs)}
 
-yell :: ([]) Instruction
+yell :: ([]) Instructions
 yell =
   (:) Read ((:) Dec ((:) Dec ((:) Dec ((:) Dec ((:) Dec ((:) Dec ((:) Dec
     ((:) Dec ((:) Dec ((:) Dec ((:) Dec ((:) Dec ((:) Dec ((:) Dec ((:) Dec
